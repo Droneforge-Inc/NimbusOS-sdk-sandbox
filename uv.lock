@@ -3,6 +3,6 @@ revision = 3
 requires-python = ">=3.12, <4.0"
 
 [[package]]
-name = "nimbus-sdk-sandbox"
+name = "nimbusos-sdk-sandbox"
 version = "0.1.0"
 source = { virtual = "." }

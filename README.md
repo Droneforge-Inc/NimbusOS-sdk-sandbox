@@ -1,4 +1,4 @@
-# Nimbus SDK Sandbox
+# NimbusOS SDK Sandbox
 
 Small external-consumer project for testing the local `nimbus-developer` Python SDK exactly like a downstream developer would use it.
 
@@ -24,7 +24,7 @@ dist/nimbus_developer-0.1.0.tar.gz
 From this sandbox repo:
 
 ```bash
-cd /Users/davidcrabtree/projects/nimbus-sdk-sandbox
+cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
 uv venv --python 3.12
 uv pip install /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/developer/dist/nimbus_developer-0.1.0-py3-none-any.whl
 ```
@@ -70,7 +70,7 @@ cd /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/developer
 uv run python scripts/refresh_schema.py --check
 uv build
 
-cd /Users/davidcrabtree/projects/nimbus-sdk-sandbox
+cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
 uv pip install --reinstall /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/developer/dist/nimbus_developer-0.1.0-py3-none-any.whl
 .venv/bin/python examples_v0/smoke_import.py
 ```
