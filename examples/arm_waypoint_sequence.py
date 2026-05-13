@@ -19,6 +19,9 @@ def main() -> None:
         print("Publishing go", flush=True)
         client.publish_guidance_request("go")
 
+        print("Waiting 10 seconds after go", flush=True)
+        time.sleep(10.0)
+
         print("Publishing waypoint 1: 3 meters forward", flush=True)
         client.publish_waypoint_command(
             mode="override",

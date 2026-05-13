@@ -37,9 +37,9 @@ uv run python examples/print_telemetry.py
 ```
 
 For the live arm-and-waypoint test, the script publishes `arm_state`, waits
-10 seconds, then publishes four waypoint commands without sleeps between them:
-3 meters forward, 2 meters left with a 20 second hold, 2 meters right, then
-3 meters backward.
+10 seconds, publishes `go`, waits another 10 seconds before waypoint 1, then
+publishes four waypoint commands without sleeps between them: 3 meters forward,
+2 meters right with a 10 second hold, 2 meters right, then 3 meters backward.
 
 ```bash
 uv run python examples/arm_waypoint_sequence.py
