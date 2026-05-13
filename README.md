@@ -16,6 +16,7 @@ uv sync
 ```bash
 uv run python examples_v0/smoke_import.py
 uv run nimbusos-subscribe --help
+uv run nimbusos-arm --help
 uv run nimbusos-guidance-request --help
 uv run nimbusos-waypoint-command --help
 ```
@@ -35,11 +36,13 @@ Then run the developer-owned telemetry example:
 uv run python examples/print_telemetry.py
 ```
 
-For the temporary manual-arm live command test, click Arm in Desktop during the
-30 second wait. The script then publishes `go` and two small waypoint commands:
+For the live arm-and-waypoint test, the script publishes `arm_state`, waits
+10 seconds, then publishes four waypoint commands without sleeps between them:
+3 meters forward, 2 meters left with a 20 second hold, 2 meters right, then
+3 meters backward.
 
 ```bash
-uv run python examples/manual_arm_go_waypoints.py
+uv run python examples/arm_waypoint_sequence.py
 ```
 
 The old command-line shaped examples are preserved under `examples_v0/` for reference:
