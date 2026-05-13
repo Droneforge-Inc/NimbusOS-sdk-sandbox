@@ -4,5 +4,12 @@ version = "0.1.0"
 description = "External-consumer sandbox for the NimbusOS SDK."
 requires-python = ">=3.12,<4.0"
 dependencies = [
-    "nimbusos-sdk==0.1.1",
+    "nimbusos-sdk==0.1.2",
+    "numpy>=2.4.4",
+    "opencv-python>=4.10.0",
+    "pillow>=11.0.0",
+    "sounddevice>=0.5.5",
+    "soundfile>=0.13.1",
+    "torch>=2.8.0",
+    "transformers>=4.50.0",
 ]

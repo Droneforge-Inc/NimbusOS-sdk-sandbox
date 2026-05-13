@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+/song.wav
+/song2.wav
+/song3.wav
