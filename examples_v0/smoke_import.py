@@ -1,5 +1,5 @@
-from nimbus_developer import NimbusClient
-from nimbus_developer import ReceivedMessage
+from nimbusos_sdk import NimbusClient
+from nimbusos_sdk import ReceivedMessage
 
 
 def main() -> None:

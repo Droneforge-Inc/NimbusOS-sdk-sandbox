@@ -1,4 +1,4 @@
-from nimbus_developer import NimbusClient
+from nimbusos_sdk import NimbusClient
 
 
 def main() -> None:
