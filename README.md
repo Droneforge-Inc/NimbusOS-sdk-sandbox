@@ -14,27 +14,12 @@ After `nimbusos-sdk` is published to PyPI:
 
 ```bash
 cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
-uv sync
+uv sync --upgrade-package nimbusos-sdk
 ```
 
-## 2. Smoke test the install
+## 2. Live test against NimbusOS
 
-```bash
-uv run python examples_v0/smoke_import.py
-uv run nimbusos-subscribe --help
-uv run nimbusos-arm --help
-uv run nimbusos-guidance-request --help
-uv run nimbusos-waypoint-command --help
-```
-
-## 3. Live test against NimbusOS
-
-Start NimbusOS so core is publishing on the default local ZeroMQ endpoints:
-
-```text
-publish:   tcp://127.0.0.1:7771
-subscribe: tcp://127.0.0.1:7772
-```
+Start NimbusOS Desktop, connect the drone, and complete the normal setup flow.
 
 Then run the live examples from the repo root in this order. Each example is
 meant to show one practical SDK pattern you can reuse in your own program.
@@ -59,16 +44,6 @@ four 90 degree yaw turns, then lands.
 uv run python commanding_yaw.py
 ```
 
-### `catch_me_hand_range.py`
-
-Shows how to combine SDK telemetry with your own perception logic. It watches
-the camera feed for an open hand, holds the current position, monitors range
-telemetry, and disarms when the drone is close enough to catch.
-
-```bash
-uv run python catch_me_hand_range.py
-```
-
 ### `dance_audio_reactive.py`
 
 Shows how to drive motion from an external signal. It analyzes an audio file,
@@ -89,14 +64,6 @@ turns 90 degrees between legs, and lands/disarms if a leg times out.
 uv run python next_steps.py
 ```
 
-The old command-line shaped examples are preserved under `examples_v0/` for reference:
-
-```bash
-uv run python examples_v0/subscribe_topic.py telemetry --timeout 5
-uv run python examples_v0/send_waypoint.py --forward 1.0 --right 0.0 --down -1.0
-uv run python examples_v0/send_guidance.py go
-```
-
 ## Development Loop
 
 When changing SDK code:
@@ -108,7 +75,9 @@ uv build
 
 cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
 uv venv --python 3.12
-uv pip install --reinstall /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/sdk/dist/nimbusos_sdk-0.1.0-py3-none-any.whl
+cd /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/sdk
+uv run python scripts/install_local_wheel.py /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox/.venv/bin/python
+cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
 .venv/bin/python examples_v0/smoke_import.py
 ```
 
