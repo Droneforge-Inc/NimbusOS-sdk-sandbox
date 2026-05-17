@@ -35,6 +35,14 @@ ground.
 uv run python getting_started.py
 ```
 
+### `set_waypoint_speed.py`
+
+Shows how to set the waypoint path speed that future waypoint commands use.
+
+```bash
+uv run python set_waypoint_speed.py
+```
+
 ### `commanding_yaw.py`
 
 Shows how to command heading changes directly. It arms, starts flight, publishes
