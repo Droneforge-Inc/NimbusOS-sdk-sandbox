@@ -78,7 +78,7 @@ uv venv --python 3.12
 cd /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/sdk
 uv run python scripts/install_local_wheel.py /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox/.venv/bin/python
 cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
-.venv/bin/python examples_v0/smoke_import.py
+.venv/bin/python -c "from nimbusos_sdk import NimbusClient, ReceivedMessage; print('import ok')"
 ```
 
 Use this repo to refine the external developer experience. If an example feels clunky here, change the SDK API or docs in the monorepo, rebuild the wheel, reinstall it here, and test again.
