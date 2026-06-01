@@ -71,22 +71,3 @@ turns 90 degrees between legs, and lands/disarms if a leg times out.
 ```bash
 uv run python next_steps.py
 ```
-
-## Development Loop
-
-When changing SDK code:
-
-```bash
-cd /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/sdk
-uv run python scripts/refresh_schema.py --check
-uv build
-
-cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
-uv venv --python 3.12
-cd /Users/davidcrabtree/projects/droneforge_mvp/NimbusOS/sdk
-uv run python scripts/install_local_wheel.py /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox/.venv/bin/python
-cd /Users/davidcrabtree/projects/NimbusOS-sdk-sandbox
-.venv/bin/python -c "from nimbusos_sdk import NimbusClient, ReceivedMessage; print('import ok')"
-```
-
-Use this repo to refine the external developer experience. If an example feels clunky here, change the SDK API or docs in the monorepo, rebuild the wheel, reinstall it here, and test again.
