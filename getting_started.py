@@ -1,17 +1,9 @@
 from __future__ import annotations
 
-import os
-import signal
-import threading
 import time
 from typing import Any
 
-import zmq
-
 from nimbusos_sdk import NimbusClient
-
-# NimbusClient import sets the packaged generated schema on sys.path.
-from droneforge.schema.ArmMessage import ArmMessage
 
 WAYPOINT_DOWN_M = 0.0
 THRESHOLD_M = 0.25
@@ -22,10 +14,6 @@ PRE_BOX_STATUS_TIMEOUT_S = 2.0
 BOX_SEQUENCE_TIMEOUT_S = 60.0
 LAND_DISARM_OPTRANGE_M = 0.10
 LAND_DISARM_TIMEOUT_S = 30.0
-ARM_STATE_TOPIC = b"arm_state"
-DEFAULT_SUB_ENDPOINT = "tcp://127.0.0.1:7772"
-DISARM_MONITOR_POLL_MS = 100
-DISARM_MONITOR_JOIN_TIMEOUT_S = 1.0
 
 
 def active_waypoint_index(client: NimbusClient) -> int | None:
@@ -107,66 +95,12 @@ def optrange_distance_m(message: Any) -> float:
     return optrange.Distance()
 
 
-def start_disarm_monitor(
-    stop_monitor: threading.Event,
-    app_disarm_received: threading.Event,
-) -> threading.Thread:
-    thread = threading.Thread(
-        target=monitor_app_disarm,
-        args=(stop_monitor, app_disarm_received),
-        daemon=True,
-    )
-    thread.start()
-    return thread
-
-
-def monitor_app_disarm(
-    stop_monitor: threading.Event,
-    app_disarm_received: threading.Event,
-) -> None:
-    context = zmq.Context.instance()
-    socket = context.socket(zmq.SUB)
-    socket.setsockopt(zmq.LINGER, 0)
-    socket.setsockopt(zmq.RCVHWM, 8)
-    socket.setsockopt(zmq.SUBSCRIBE, ARM_STATE_TOPIC)
-    socket.connect(os.environ.get("DF_ZMQ_SUB_ENDPOINT", DEFAULT_SUB_ENDPOINT))
-
-    try:
-        while not stop_monitor.is_set():
-            if socket.poll(timeout=DISARM_MONITOR_POLL_MS) == 0:
-                continue
-            if stop_monitor.is_set():
-                return
-
-            topic_frame, payload_frame = socket.recv_multipart()
-            if topic_frame != ARM_STATE_TOPIC:
-                continue
-
-            arm_message = ArmMessage.GetRootAs(payload_frame, 0)
-            if arm_message.Armed():
-                continue
-            if stop_monitor.is_set():
-                return
-
-            print("App published disarm; stopping script", flush=True)
-            app_disarm_received.set()
-            os.kill(os.getpid(), signal.SIGINT)
-            return
-    except Exception as exc:
-        print(f"Disarm monitor failed: {exc!r}", flush=True)
-        os.kill(os.getpid(), signal.SIGINT)
-        raise
-    finally:
-        socket.close()
-
-
-def publish_disarm(client: NimbusClient, stop_monitor: threading.Event) -> None:
-    stop_monitor.set()
+def publish_disarm(client: NimbusClient) -> None:
     print("Publishing disarm", flush=True)
     client.publish_arm_state(False)
 
 
-def land_and_disarm(client: NimbusClient, stop_monitor: threading.Event) -> None:
+def land_and_disarm(client: NimbusClient) -> None:
     print("Publishing land", flush=True)
     client.publish_autonomy_request("land")
 
@@ -175,19 +109,12 @@ def land_and_disarm(client: NimbusClient, stop_monitor: threading.Event) -> None
         flush=True,
     )
     wait_for_landing_optrange(client)
-    publish_disarm(client, stop_monitor)
+    publish_disarm(client)
 
 
 def main() -> None:
-    stop_monitor = threading.Event()
-    app_disarm_received = threading.Event()
-
     with NimbusClient() as client:
-        disarm_monitor: threading.Thread | None = None
-
         try:
-            disarm_monitor = start_disarm_monitor(stop_monitor, app_disarm_received)
-
             print("Publishing arm", flush=True)
             client.publish_arm_state(True)
 
@@ -251,22 +178,14 @@ def main() -> None:
             print("Waiting for the final rectangle waypoint", flush=True)
             wait_for_box_complete(client, previous_waypoint_index)
 
-            land_and_disarm(client, stop_monitor)
+            land_and_disarm(client)
         except KeyboardInterrupt:
-            if app_disarm_received.is_set():
-                print("Stopped after app disarm", flush=True)
-                return
-
             print("Keyboard interrupt; publishing disarm before exit", flush=True)
-            publish_disarm(client, stop_monitor)
+            publish_disarm(client)
         except Exception as exc:
             print(f"Mission failed: {exc!r}; landing before exit", flush=True)
-            land_and_disarm(client, stop_monitor)
+            land_and_disarm(client)
             raise
-        finally:
-            stop_monitor.set()
-            if disarm_monitor is not None:
-                disarm_monitor.join(timeout=DISARM_MONITOR_JOIN_TIMEOUT_S)
 
 
 if __name__ == "__main__":
