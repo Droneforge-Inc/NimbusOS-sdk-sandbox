@@ -417,15 +417,15 @@ wheels = [
 
 [[package]]
 name = "nimbusos-sdk"
-version = "0.1.5"
+version = "0.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "flatbuffers" },
     { name = "pyzmq" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0b/51/ca6b60813780ef19f59641afb91a9b9b0ab29cca6e4f12a62a3b73f77555/nimbusos_sdk-0.1.5.tar.gz", hash = "sha256:8f9f2af512ca19c4ab964374a406f2344973db2e051d9bc834db753e4cf6c443", size = 18613, upload-time = "2026-05-16T18:15:52.606Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/85/e6ba8ce548dff39b979f55dd9f48b415d4b4f21532b5eec9e032929ff46f/nimbusos_sdk-0.1.8.tar.gz", hash = "sha256:ef3cd56769b293a3afd6b0d79a518415e8d7a9b15b69a1e070043b182b1d0177", size = 20797, upload-time = "2026-06-02T19:34:09.085Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6a/ee/1d1866ef7d4e1d74de948da27527e4cbcb54f9699c52e7773529deec38ad/nimbusos_sdk-0.1.5-py3-none-any.whl", hash = "sha256:da576c3dd6269a1b09c88b21c2e40b7dbd6272252348e3264e2d8cb83cec8bc0", size = 36129, upload-time = "2026-05-16T18:15:51.122Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/a7/fc472a6972767318d788d2ccd1532124481b784a4648b68ccc5850fb026f/nimbusos_sdk-0.1.8-py3-none-any.whl", hash = "sha256:3bd305706bfc1a92f3569b10a242947ec2e7e206af3808c7c6125805134ded24", size = 40561, upload-time = "2026-06-02T19:34:08.153Z" },
 ]
 
 [[package]]
