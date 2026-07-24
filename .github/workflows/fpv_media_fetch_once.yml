@@ -1,13 +1,13 @@
 name: One-time FPV experiment media fetch
 
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
-      - .github/workflows/fpv_media_fetch_once.yml
+      - experiments/fpv_media_trigger.txt
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   fetch-media:
@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p artifact experiments
+          mkdir -p artifact
 
           PRIMARY='https://media.githubusercontent.com/media/AlexGonz00/online-portfolio/b76b2358e277ca6d74613c29658cf551cdefbc01/media/zachry_drone_tour.mp4'
           FALLBACK='https://www.pexels.com/download/video/4160273/'
@@ -71,9 +71,8 @@ jobs:
               'github_run_id': int(os.environ['GITHUB_RUN_ID']),
               'github_sha': os.environ['GITHUB_SHA'],
           }
-          for path in ('artifact/source.json', 'experiments/fpv_media_run.json'):
-              with open(path, 'w', encoding='utf-8') as f:
-                  json.dump(payload, f, indent=2)
+          with open('artifact/source.json', 'w', encoding='utf-8') as f:
+              json.dump(payload, f, indent=2)
           PY
 
       - name: Upload experiment media
@@ -83,13 +82,3 @@ jobs:
           path: artifact/
           if-no-files-found: error
           retention-days: 7
-
-      - name: Publish run identifier
-        shell: bash
-        run: |
-          set -euxo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add experiments/fpv_media_run.json
-          git commit -m 'Record one-time FPV media artifact run'
-          git push origin HEAD:main
