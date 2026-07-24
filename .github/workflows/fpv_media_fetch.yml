@@ -1,0 +1,102 @@
+name: FPV experiment media fetch
+
+on:
+  push:
+    branches:
+      - experiment/fpv-video-link-relay
+    paths:
+      - .github/workflows/fpv_media_fetch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-media:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: experiment/fpv-video-link-relay
+
+      - name: Download a continuous drone-tour test video
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p artifact
+
+          PRIMARY='https://media.githubusercontent.com/media/AlexGonz00/online-portfolio/b76b2358e277ca6d74613c29658cf551cdefbc01/media/zachry_drone_tour.mp4'
+          FALLBACK='https://www.pexels.com/download/video/4160273/'
+
+          if curl -L --fail --retry 3 --retry-all-errors --connect-timeout 30 \
+              -A 'Mozilla/5.0' "$PRIMARY" -o source.mp4; then
+            SOURCE_NAME='zachry_drone_tour'
+            SOURCE_URL="$PRIMARY"
+          else
+            curl -L --fail --retry 3 --retry-all-errors --connect-timeout 30 \
+              -A 'Mozilla/5.0' "$FALLBACK" -o source.mp4
+            SOURCE_NAME='pexels_fpv_4160273'
+            SOURCE_URL="$FALLBACK"
+          fi
+
+          ffprobe -v error -show_format -show_streams -of json source.mp4 > artifact/source_ffprobe.json
+
+          # Keep a continuous, analysis-sized clip. No frame interpolation or stabilization.
+          DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 source.mp4)
+          START=$(python - "$DURATION" <<'PY'
+          import sys
+          duration = float(sys.argv[1])
+          # Skip a possible title card, but never jump into the final third.
+          print(max(0.0, min(5.0, duration * 0.10)))
+          PY
+          )
+          KEEP=$(python - "$DURATION" "$START" <<'PY'
+          import sys
+          duration, start = map(float, sys.argv[1:])
+          print(max(1.0, min(45.0, duration - start)))
+          PY
+          )
+
+          ffmpeg -hide_banner -loglevel error -y \
+            -ss "$START" -i source.mp4 -t "$KEEP" \
+            -vf "scale='min(960,iw)':-2:flags=lanczos,fps=15" \
+            -an -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p \
+            -movflags +faststart artifact/fpv_test_clip.mp4
+
+          SHA=$(sha256sum artifact/fpv_test_clip.mp4 | awk '{print $1}')
+          python - "$SOURCE_NAME" "$SOURCE_URL" "$START" "$KEEP" "$SHA" <<'PY'
+          import json, os, sys
+          source_name, source_url, start, duration, sha = sys.argv[1:]
+          payload = {
+              'source_name': source_name,
+              'source_url': source_url,
+              'clip_start_s': float(start),
+              'clip_duration_s': float(duration),
+              'processing': 'continuous trim; resize to <=960px; 15 fps; no stabilization; no interpolation',
+              'sha256': sha,
+              'github_run_id': int(os.environ['GITHUB_RUN_ID']),
+              'github_sha': os.environ['GITHUB_SHA'],
+          }
+          with open('artifact/source.json', 'w', encoding='utf-8') as f:
+              json.dump(payload, f, indent=2)
+          with open('experiments/fpv_media_run.json', 'w', encoding='utf-8') as f:
+              json.dump(payload, f, indent=2)
+          PY
+
+      - name: Upload experiment media
+        uses: actions/upload-artifact@v4
+        with:
+          name: fpv-experiment-media
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish run identifier on the experiment branch
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add experiments/fpv_media_run.json
+          git commit -m 'Record FPV media artifact run' || exit 0
+          git push origin HEAD:experiment/fpv-video-link-relay
