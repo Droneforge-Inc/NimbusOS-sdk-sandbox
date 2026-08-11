@@ -122,7 +122,7 @@ def main() -> None:
             time.sleep(10.0)
 
             print("Publishing takeoff", flush=True)
-            client.publish_autonomy_request("takeoff")
+            client.publish_takeoff()
 
             print("Waiting 10 seconds after takeoff", flush=True)
             time.sleep(10.0)

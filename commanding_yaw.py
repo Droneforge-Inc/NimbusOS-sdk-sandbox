@@ -18,10 +18,10 @@ def main() -> None:
         print("Waiting 10 seconds after arm", flush=True)
         time.sleep(10.0)
 
-        print("Publishing go", flush=True)
-        client.publish_guidance_request("go")
+        print("Publishing takeoff", flush=True)
+        client.publish_takeoff()
 
-        print("Waiting 10 seconds after go", flush=True)
+        print("Waiting 10 seconds after takeoff", flush=True)
         time.sleep(10.0)
 
         for turn_number in range(1, TURN_COUNT + 1):
@@ -39,7 +39,7 @@ def main() -> None:
                 time.sleep(TURN_WAIT_S)
 
         print("Publishing land", flush=True)
-        client.publish_guidance_request("land")
+        client.publish_autonomy_request("land")
 
 
 if __name__ == "__main__":

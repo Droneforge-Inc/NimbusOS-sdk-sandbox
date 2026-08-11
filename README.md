@@ -26,13 +26,23 @@ meant to show one practical SDK pattern you can reuse in your own program.
 
 ### `getting_started.py`
 
-Shows the basic flight-control loop: connect with `NimbusClient`, arm, send
-`go`, publish a short rectangle of waypoint commands, wait for waypoint-status
-completion, land, and disarm after the rangefinder reports the drone is near the
-ground.
+Shows the basic flight-control loop: connect with `NimbusClient`, arm, request
+takeoff, publish a short rectangle of relative waypoints, wait for
+waypoint-status completion, land, and disarm after the rangefinder reports the
+drone is near the ground.
 
 ```bash
 uv run python getting_started.py
+```
+
+### `subscribe_state.py`
+
+Shows the smallest standalone state subscription pattern. It connects with
+`NimbusClient`, prints position samples for 10 seconds, and raises if no state
+arrives.
+
+```bash
+uv run python subscribe_state.py
 ```
 
 ### `set_waypoint_speed.py`
@@ -50,16 +60,6 @@ four 90 degree yaw turns, then lands.
 
 ```bash
 uv run python commanding_yaw.py
-```
-
-### `dance_audio_reactive.py`
-
-Shows how to drive motion from an external signal. It analyzes an audio file,
-detects bass, snare, and treble events, then publishes timed waypoint updates
-while the song plays.
-
-```bash
-uv run python dance_audio_reactive.py
 ```
 
 ### `next_steps.py`

@@ -6,7 +6,6 @@ from typing import Any
 
 from nimbusos_sdk import NimbusClient
 
-TARGET_DOWN_M = -1.0
 FORWARD_STEP_M = 1.0
 THRESHOLD_M = 0.15
 HOLD_TIME_S = 0.5
@@ -42,11 +41,11 @@ def wait_for_waypoint_complete(client: NimbusClient, label: str) -> None:
 
 def publish_forward_waypoint(client: NimbusClient, label: str) -> None:
     print(f"Publishing {label}: {FORWARD_STEP_M:.1f} meter forward", flush=True)
-    client.publish_waypoint_command(
+    client.publish_relative_waypoint(
         mode="override",
         forward=FORWARD_STEP_M,
         right=0.0,
-        down=TARGET_DOWN_M,
+        down=0.0,
         threshold_m=THRESHOLD_M,
         hold_time_s=HOLD_TIME_S,
     )
@@ -61,7 +60,7 @@ def publish_yaw_turn(client: NimbusClient, label: str) -> None:
 
 def land_and_disarm(client: NimbusClient, reason: str) -> None:
     print(f"{reason}; publishing land", flush=True)
-    client.publish_guidance_request("land")
+    client.publish_autonomy_request("land")
 
     print(
         f"Waiting for optrange <= {LAND_DISARM_OPTRANGE_M:.2f} m before disarm",
@@ -104,10 +103,10 @@ def main() -> None:
         print("Waiting 10 seconds after arm", flush=True)
         time.sleep(10.0)
 
-        print("Publishing go", flush=True)
-        client.publish_guidance_request("go")
+        print("Publishing takeoff", flush=True)
+        client.publish_takeoff()
 
-        print("Waiting 10 seconds after go", flush=True)
+        print("Waiting 10 seconds after takeoff", flush=True)
         time.sleep(10.0)
 
         for leg_number in range(1, LEG_COUNT + 1):
@@ -121,7 +120,7 @@ def main() -> None:
             publish_yaw_turn(client, label)
 
         print("Publishing land", flush=True)
-        client.publish_guidance_request("land")
+        client.publish_autonomy_request("land")
 
 
 if __name__ == "__main__":
