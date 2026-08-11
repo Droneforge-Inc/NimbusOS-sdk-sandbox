@@ -8,10 +8,9 @@ import threading
 import time
 from typing import Any
 
-import zmq
+import numpy as np
 
 from nimbusos_sdk import NimbusClient
-from nimbusos_sdk.schema import load_message_class
 
 
 HAND_MODEL = "openai/clip-vit-base-patch32"
@@ -40,9 +39,7 @@ READY_HOVER_DOWN_M = -1.5
 READY_HOVER_THRESHOLD_M = 0.15
 READY_HOVER_HOLD_TIME_S = 999.0
 STATE_SAMPLE_TIMEOUT_S = 2.0
-CAMERA_READER_RECEIVE_HWM = 1
 CAMERA_DISPLAY_PERIOD_S = 1.0 / 60.0
-MAX_CAMERA_DRAIN_PER_TICK = 1000
 
 HOLD_WAYPOINT_THRESHOLD_M = 0.12
 
@@ -59,7 +56,7 @@ class CatchMeConfig:
     catch_range_m: float
     dry_run: bool
     display: bool
-    publish_go: bool
+    publish_takeoff: bool
     publish_ready_hover: bool
     inference_device: str
 
@@ -77,13 +74,6 @@ class LatestCameraImage:
     image: Any | None = None
     frame_seq: int | None = None
     frame_t_ns: int | None = None
-
-
-@dataclass
-class LatestCameraFrame:
-    payload: bytes | None = None
-    received_monotonic_ns: int | None = None
-    update_id: int = 0
 
 
 def build_hand_classifier(config: CatchMeConfig) -> Any:
@@ -153,10 +143,10 @@ def wait_for_desktop_start_and_hover(
     if not config.dry_run:
         client.publish_arm_state(True)
 
-    if config.publish_go:
-        print("Publishing go", flush=True)
-    if config.publish_go and not config.dry_run:
-        client.publish_guidance_request("go")
+    if config.publish_takeoff:
+        print("Publishing takeoff", flush=True)
+    if config.publish_takeoff and not config.dry_run:
+        client.publish_takeoff()
 
     if not config.publish_ready_hover:
         print(
@@ -167,39 +157,26 @@ def wait_for_desktop_start_and_hover(
 
     state = latest_state(client, timeout_sec=STATE_SAMPLE_TIMEOUT_S)
     if state is None:
-        print(
-            "No state sample available; publishing vertical-only relative hover "
-            "request instead of an absolute horizontal waypoint.",
-            flush=True,
+        raise TimeoutError(
+            "No selected-state sample available for the ready hover command"
         )
-        if not config.dry_run:
-            client.publish_guidance_request(
-                "relative_waypoint",
-                forward=0.0,
-                right=0.0,
-                down=READY_HOVER_DOWN_M,
-                hold_time_s=READY_HOVER_HOLD_TIME_S,
-            )
-        return
 
-    forward_m = state.position.x_m
-    right_m = state.position.y_m
+    down_offset_m = READY_HOVER_DOWN_M - state.position.z_m
 
     print(
         "Publishing ready hover waypoint",
-        f"forward={forward_m:.2f}m",
-        f"right={right_m:.2f}m",
-        f"down={READY_HOVER_DOWN_M:.2f}m",
+        f"target_down={READY_HOVER_DOWN_M:.2f}m",
+        f"down_offset={down_offset_m:.2f}m",
         flush=True,
     )
     if config.dry_run:
         return
 
-    client.publish_waypoint_command(
+    client.publish_relative_waypoint(
         mode="override",
-        forward=forward_m,
-        right=right_m,
-        down=READY_HOVER_DOWN_M,
+        forward=0.0,
+        right=0.0,
+        down=down_offset_m,
         threshold_m=READY_HOVER_THRESHOLD_M,
         hold_time_s=READY_HOVER_HOLD_TIME_S,
     )
@@ -207,7 +184,7 @@ def wait_for_desktop_start_and_hover(
 
 def latest_state(client: NimbusClient, *, timeout_sec: float) -> Any | None:
     state = None
-    for sampled_state in client.state(timeout_sec=timeout_sec):
+    for sampled_state in client.selected_state(timeout_sec=timeout_sec):
         state = sampled_state
     return state
 
@@ -286,21 +263,13 @@ def show_preview(
 
 def wait_for_five_fingers(client: NimbusClient, config: CatchMeConfig) -> None:
     cv2 = build_preview_modules() if config.display else build_cv2_module()
-    camera_message_class = load_message_class("CameraJpegMessage")
 
-    latest_frame = LatestCameraFrame()
     latest = LatestCameraImage()
     snapshot = InferenceSnapshot()
-    latest_frame_lock = threading.Lock()
     latest_lock = threading.Lock()
     snapshot_lock = threading.Lock()
     stop_event = threading.Event()
     detected_event = threading.Event()
-    camera_reader = threading.Thread(
-        target=raw_camera_frame_reader,
-        args=(client.sub_endpoint, latest_frame, latest_frame_lock, stop_event),
-        daemon=True,
-    )
     worker = threading.Thread(
         target=inference_worker,
         args=(
@@ -314,36 +283,20 @@ def wait_for_five_fingers(client: NimbusClient, config: CatchMeConfig) -> None:
         ),
         daemon=True,
     )
-    camera_reader.start()
     worker.start()
 
     print("Watching camera feed for an open hand with five fingers.", flush=True)
     try:
-        displayed_update: int | None = None
-        while not stop_event.is_set():
-            with latest_frame_lock:
-                payload = latest_frame.payload
-                update_id = latest_frame.update_id
-
-            if payload is None or update_id == displayed_update:
-                if detected_event.is_set():
-                    print("Open hand detected. Entering catch me mode.", flush=True)
-                    return
-                stop_event.wait(0.005)
-                continue
-
-            displayed_update = update_id
-            decoded = camera_message_class.GetRootAs(payload, 0)
-            frame_seq = decoded.Seq()
-            frame_t_ns = decoded.TNs()
-            frame_bgr = cv2.imdecode(decoded.JpegAsNumpy(), cv2.IMREAD_COLOR)
+        for frame in client.latest_camera_frames():
+            jpeg = np.frombuffer(frame.jpeg, dtype=np.uint8)
+            frame_bgr = cv2.imdecode(jpeg, cv2.IMREAD_COLOR)
             if frame_bgr is None:
                 continue
 
             with latest_lock:
                 latest.image = frame_bgr.copy()
-                latest.frame_seq = frame_seq
-                latest.frame_t_ns = frame_t_ns
+                latest.frame_seq = frame.seq
+                latest.frame_t_ns = frame.t_ns
 
             if config.display:
                 with snapshot_lock:
@@ -380,59 +333,9 @@ def wait_for_five_fingers(client: NimbusClient, config: CatchMeConfig) -> None:
             stop_event.wait(CAMERA_DISPLAY_PERIOD_S)
     finally:
         stop_event.set()
-        camera_reader.join(timeout=1.0)
         worker.join(timeout=1.0)
         if cv2 is not None:
             cv2.destroyAllWindows()
-
-
-def raw_camera_frame_reader(
-    sub_endpoint: str,
-    latest_frame: LatestCameraFrame,
-    latest_frame_lock: threading.Lock,
-    stop_event: threading.Event,
-) -> None:
-    context = zmq.Context.instance()
-    socket = context.socket(zmq.SUB)
-    socket.setsockopt(zmq.LINGER, 0)
-    socket.setsockopt(zmq.RCVHWM, CAMERA_READER_RECEIVE_HWM)
-    socket.setsockopt(zmq.SUBSCRIBE, b"camera")
-    socket.connect(sub_endpoint)
-
-    try:
-        while not stop_event.is_set():
-            if socket.poll(timeout=100) == 0:
-                continue
-
-            latest_payload_frame = None
-            latest_received_ns = None
-            drained = 0
-
-            while drained < MAX_CAMERA_DRAIN_PER_TICK:
-                try:
-                    topic_frame, payload_frame = socket.recv_multipart(
-                        flags=zmq.NOBLOCK,
-                        copy=False,
-                    )
-                except zmq.Again:
-                    break
-
-                if topic_frame.bytes != b"camera":
-                    continue
-
-                latest_payload_frame = payload_frame
-                latest_received_ns = time.monotonic_ns()
-                drained += 1
-
-            if latest_payload_frame is None:
-                continue
-
-            with latest_frame_lock:
-                latest_frame.payload = latest_payload_frame.bytes
-                latest_frame.received_monotonic_ns = latest_received_ns
-                latest_frame.update_id += 1
-    finally:
-        socket.close()
 
 
 def inference_worker(
@@ -490,33 +393,26 @@ def inference_worker(
 
 
 def hold_current_position(client: NimbusClient, config: CatchMeConfig) -> None:
-    state = None
-    for sampled_state in client.state(timeout_sec=1.0):
-        state = sampled_state
-
+    state = latest_state(client, timeout_sec=1.0)
     if state is None:
-        print("No state sample available; entering catch mode without hold waypoint.", flush=True)
-        return
+        raise TimeoutError("No selected-state sample available for the hold waypoint")
 
-    forward_m = state.position.x_m
-    right_m = state.position.y_m
-    down_m = state.position.z_m
     print(
-        "Publishing hold waypoint",
-        f"forward={forward_m:.2f}m",
-        f"right={right_m:.2f}m",
-        f"down={down_m:.2f}m",
+        "Publishing hold waypoint at current selected state",
+        f"forward={state.position.x_m:.2f}m",
+        f"right={state.position.y_m:.2f}m",
+        f"down={state.position.z_m:.2f}m",
         flush=True,
     )
 
     if config.dry_run:
         return
 
-    client.publish_waypoint_command(
+    client.publish_relative_waypoint(
         mode="override",
-        forward=forward_m,
-        right=right_m,
-        down=down_m,
+        forward=0.0,
+        right=0.0,
+        down=0.0,
         threshold_m=HOLD_WAYPOINT_THRESHOLD_M,
         hold_time_s=0.0,
     )
@@ -645,9 +541,9 @@ def parse_args() -> CatchMeConfig:
         help="Disable the OpenCV camera preview window.",
     )
     parser.add_argument(
-        "--publish-go",
+        "--publish-takeoff",
         action="store_true",
-        help="Also publish a go request after the 10 second Desktop Start wait.",
+        help="Also publish takeoff after the 10 second Desktop Start wait.",
     )
     parser.add_argument(
         "--no-ready-hover",
@@ -690,7 +586,7 @@ def parse_args() -> CatchMeConfig:
         catch_range_m=args.catch_range_inches * INCHES_TO_METERS,
         dry_run=args.dry_run,
         display=not args.no_display,
-        publish_go=args.publish_go,
+        publish_takeoff=args.publish_takeoff,
         publish_ready_hover=not args.no_ready_hover,
         inference_device=args.inference_device,
     )
